@@ -3,7 +3,6 @@ import numpy as np
 import os
 import sys
 import tensorflow as tf
-
 from sklearn.model_selection import train_test_split
 
 EPOCHS = 10
@@ -14,7 +13,6 @@ TEST_SIZE = 0.4
 
 
 def main():
-
     # Check command-line arguments
     if len(sys.argv) not in [2, 3]:
         sys.exit("Usage: python traffic.py data_directory [model.h5]")
@@ -35,7 +33,7 @@ def main():
     model.fit(x_train, y_train, epochs=EPOCHS)
 
     # Evaluate neural network performance
-    model.evaluate(x_test,  y_test, verbose=2)
+    model.evaluate(x_test, y_test, verbose=2)
 
     # Save model to file
     if len(sys.argv) == 3:
@@ -47,18 +45,51 @@ def main():
 def load_data(data_dir):
     """
     Load image data from directory `data_dir`.
-
     Assume `data_dir` has one directory named after each category, numbered
     0 through NUM_CATEGORIES - 1. Inside each category directory will be some
     number of image files.
-
     Return tuple `(images, labels)`. `images` should be a list of all
     of the images in the data directory, where each image is formatted as a
     numpy ndarray with dimensions IMG_WIDTH x IMG_HEIGHT x 3. `labels` should
     be a list of integer labels, representing the categories for each of the
     corresponding `images`.
     """
-    raise NotImplementedError
+    images = []
+    labels = []
+    
+    # Iterate through each category directory
+    for category in range(NUM_CATEGORIES):
+        # Build the path to the category directory
+        category_dir = os.path.join(data_dir, str(category))
+        
+        # Skip if directory doesn't exist
+        if not os.path.isdir(category_dir):
+            continue
+        
+        # Iterate through all images in the category directory
+        for filename in os.listdir(category_dir):
+            # Build the full file path
+            img_path = os.path.join(category_dir, filename)
+            
+            try:
+                # Read the image
+                img = cv2.imread(img_path)
+                
+                # Skip if image couldn't be read
+                if img is None:
+                    continue
+                
+                # Resize image to required dimensions
+                img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
+                
+                # Add image and its label to the lists
+                images.append(img)
+                labels.append(category)
+                
+            except Exception as e:
+                print(f"Error processing {img_path}: {e}")
+    
+    return (images, labels)
 
 
 def get_model():
@@ -67,7 +98,43 @@ def get_model():
     `input_shape` of the first layer is `(IMG_WIDTH, IMG_HEIGHT, 3)`.
     The output layer should have `NUM_CATEGORIES` units, one for each category.
     """
-    raise NotImplementedError
+    # Create a sequential model
+    model = tf.keras.models.Sequential([
+        # Convolutional layer with 32 filters of size 3x3, ReLU activation
+        tf.keras.layers.Conv2D(
+            32, (3, 3), activation="relu", input_shape=(IMG_WIDTH, IMG_HEIGHT, 3)
+        ),
+        
+        # Max-pooling layer, using 2x2 pool size
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        
+        # Second convolutional layer with 64 filters of size 3x3, ReLU activation
+        tf.keras.layers.Conv2D(
+            64, (3, 3), activation="relu"
+        ),
+        
+        # Second max-pooling layer
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        
+        # Flatten units
+        tf.keras.layers.Flatten(),
+        
+        # Add a hidden layer with dropout
+        tf.keras.layers.Dense(128, activation="relu"),
+        tf.keras.layers.Dropout(0.5),
+        
+        # Add an output layer with output units for all categories
+        tf.keras.layers.Dense(NUM_CATEGORIES, activation="softmax")
+    ])
+    
+    # Compile the model
+    model.compile(
+        optimizer="adam",
+        loss="categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+    
+    return model
 
 
 if __name__ == "__main__":
